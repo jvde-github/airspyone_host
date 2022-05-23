@@ -851,6 +851,96 @@ static int airspy_open_init(airspy_device_t** device, uint64_t serial_number)
 	return AIRSPY_SUCCESS;
 }
 
+static int airspy_open_init_file_descriptor(airspy_device_t** device, int fd)
+{
+	airspy_device_t* lib_device;
+	int libusb_error;
+	int result;
+
+	*device = NULL;
+
+	lib_device = (airspy_device_t*)calloc(1, sizeof(airspy_device_t));
+	if (lib_device == NULL)
+	{
+		return AIRSPY_ERROR_NO_MEM;
+	}
+
+	libusb_error = libusb_set_option(lib_device->usb_context, LIBUSB_OPTION_NO_DEVICE_DISCOVERY, NULL);
+	if (libusb_error != 0)
+	{
+		free(lib_device);
+		return AIRSPY_ERROR_LIBUSB;
+	}
+	libusb_error = libusb_init(&lib_device->usb_context);
+	if (libusb_error != 0)
+	{
+		free(lib_device);
+		return AIRSPY_ERROR_LIBUSB;
+	}
+	libusb_error = libusb_wrap_sys_device(lib_device->usb_context, (intptr_t)fd, &lib_device->usb_device);
+	if (libusb_error != 0)
+	{
+		free(lib_device);
+		return AIRSPY_ERROR_LIBUSB;
+	}
+
+	if (lib_device->usb_device == NULL)
+	{
+		libusb_exit(lib_device->usb_context);
+		free(lib_device);
+		return result;
+	}
+
+	lib_device->transfers = NULL;
+	lib_device->callback = NULL;
+	lib_device->transfer_count = 16;
+	lib_device->buffer_size = 262144;
+	lib_device->packing_enabled = false;
+	lib_device->streaming = false;
+	lib_device->stop_requested = false;
+	lib_device->sample_type = AIRSPY_SAMPLE_FLOAT32_IQ;
+
+	result = airspy_read_samplerates_from_fw(lib_device, &lib_device->supported_samplerate_count, 0);
+	if (result == AIRSPY_SUCCESS)
+	{
+		lib_device->supported_samplerates = (uint32_t*)malloc(lib_device->supported_samplerate_count * sizeof(uint32_t));
+		result = airspy_read_samplerates_from_fw(lib_device, lib_device->supported_samplerates, lib_device->supported_samplerate_count);
+		if (result != AIRSPY_SUCCESS)
+		{
+			free(lib_device->supported_samplerates);
+		}
+	}
+
+	if (result != AIRSPY_SUCCESS)
+	{
+		lib_device->supported_samplerate_count = 2;
+		lib_device->supported_samplerates = (uint32_t*)malloc(lib_device->supported_samplerate_count * sizeof(uint32_t));
+		lib_device->supported_samplerates[0] = 10000000;
+		lib_device->supported_samplerates[1] = 2500000;
+	}
+
+	airspy_set_packing(lib_device, 0);
+
+	result = allocate_transfers(lib_device);
+	if (result != 0)
+	{
+		airspy_open_exit(lib_device);
+		free(lib_device->supported_samplerates);
+		free(lib_device);
+		return AIRSPY_ERROR_NO_MEM;
+	}
+
+	lib_device->cnv_f = iqconverter_float_create(HB_KERNEL_FLOAT, HB_KERNEL_FLOAT_LEN);
+	lib_device->cnv_i = iqconverter_int16_create(HB_KERNEL_INT16, HB_KERNEL_INT16_LEN);
+
+	pthread_cond_init(&lib_device->consumer_cv, NULL);
+	pthread_mutex_init(&lib_device->consumer_mp, NULL);
+
+	*device = lib_device;
+
+	return AIRSPY_SUCCESS;
+}
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -963,6 +1053,14 @@ int airspy_list_devices(uint64_t *serials, int count)
 		int result;
 
 		result = airspy_open_init(device, serial_number);
+		return result;
+	}
+
+	int ADDCALL airspy_open_file_descriptor(airspy_device_t** device, int fd)
+	{
+		int result;
+
+		result = airspy_open_init_file_descriptor(device, fd);
 		return result;
 	}
 

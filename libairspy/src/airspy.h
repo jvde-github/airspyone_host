@@ -125,6 +125,7 @@ extern ADDAPI int ADDCALL airspy_exit(void);
 
 extern ADDAPI int ADDCALL airspy_list_devices(uint64_t *serials, int count);
 
+extern ADDAPI int ADDCALL airspy_open_file_descriptor(struct airspy_device** device, int fd);
 extern ADDAPI int ADDCALL airspy_open_sn(struct airspy_device** device, uint64_t serial_number);
 extern ADDAPI int ADDCALL airspy_open(struct airspy_device** device);
 extern ADDAPI int ADDCALL airspy_close(struct airspy_device* device);
