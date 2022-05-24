@@ -883,14 +883,14 @@ static int airspy_open_init_file_descriptor(airspy_device_t** device, int fd)
 		free(lib_device);
 		return result;
 	}
-	libusb_error = libusb_set_configuration(dev_handle, 1);
+	libusb_error = libusb_set_configuration(lib_device->usb_device, 1);
 	if (libusb_error != 0)
 	{
 		libusb_exit(lib_device->usb_context);
 		free(lib_device);
 		return result;
 	}
-	libusb_error = libusb_claim_interface(dev_handle, 0);
+	libusb_error = libusb_claim_interface(lib_device->usb_device, 0);
 	if (libusb_error != 0)
 	{
 		libusb_exit(lib_device->usb_context);
