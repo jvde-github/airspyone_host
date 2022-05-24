@@ -864,7 +864,6 @@ static int airspy_open_init_file_descriptor(airspy_device_t** device, int fd)
 	{
 		return AIRSPY_ERROR_NO_MEM;
 	}
-
 	libusb_error = libusb_set_option(lib_device->usb_context, LIBUSB_OPTION_NO_DEVICE_DISCOVERY, NULL);
 	if (libusb_error != 0)
 	{
@@ -883,7 +882,6 @@ static int airspy_open_init_file_descriptor(airspy_device_t** device, int fd)
 		free(lib_device);
 		return AIRSPY_ERROR_LIBUSB;
 	}
-
 	if (lib_device->usb_device == NULL)
 	{
 		libusb_exit(lib_device->usb_context);
